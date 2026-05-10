@@ -127,6 +127,22 @@ select.sel:focus,.sel:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(
 #input-box .send:disabled{background:var(--border);cursor:default}
 #input-box .send svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5}
 
+/* Modal */
+[x-cloak]{display:none!important}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:140}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;z-index:150}
+.modal-card{width:min(560px,100%);background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);font-size:16px;font-weight:600}
+.modal-close{width:32px;height:32px;border:none;background:none;border-radius:8px;cursor:pointer;font-size:22px;line-height:1;color:var(--muted)}
+.modal-close:hover{background:var(--hover);color:var(--text)}
+.modal-body{padding:20px;display:flex;flex-direction:column;gap:10px}
+.modal-actions{padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.form-label{font-size:13px;color:var(--muted);font-weight:600}
+.form-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;outline:none}
+.form-input:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(16,163,127,.12)}
+.form-help{font-size:12px;color:var(--muted);line-height:1.6}
+.proxy-cell{max-width:240px;font-size:12px;color:var(--muted);font-family:monospace;word-break:break-all}
+
 /* Toast */
 .toast{position:fixed;bottom:16px;right:16px;background:#1e1e1e;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}

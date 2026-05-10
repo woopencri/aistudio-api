@@ -49,10 +49,10 @@ class AIStudioClient:
             await self._session.ensure_context()
             logger.info("浏览器预热完成")
 
-    async def switch_auth(self, auth_file: str | None) -> None:
+    async def switch_auth(self, auth_file: str | None, proxy_url: str | None = None) -> None:
         """切换账号的 auth 文件。"""
         if self._session is not None:
-            await self._session.switch_auth(auth_file)
+            await self._session.switch_auth(auth_file, proxy_url)
 
     def clear_snapshot_cache(self) -> None:
         """清除 snapshot 缓存。"""

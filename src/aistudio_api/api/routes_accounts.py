@@ -12,6 +12,7 @@ router = APIRouter(prefix="/accounts")
 
 class LoginStartRequest(BaseModel):
     name: str | None = None
+    proxy_url: str | None = None
 
 
 class LoginStartResponse(BaseModel):
@@ -24,6 +25,7 @@ class AccountResponse(BaseModel):
     email: str | None
     created_at: str
     last_used: str | None
+    proxy_url: str | None
 
 
 class LoginStatusResponse(BaseModel):
@@ -36,6 +38,7 @@ class LoginStatusResponse(BaseModel):
 
 class UpdateAccountRequest(BaseModel):
     name: str
+    proxy_url: str | None = None
 
 
 @router.post("/login/start", response_model=LoginStartResponse)
@@ -44,7 +47,10 @@ async def login_start(
     account_service=Depends(get_account_service),
 ):
     """启动 Google 登录流程。"""
-    session_id = await account_service.start_login(req.name)
+    try:
+        session_id = await account_service.start_login(req.name, req.proxy_url)
+    except ValueError as exc:
+        raise HTTPException(400, detail={"message": str(exc), "type": "bad_request"}) from exc
     return LoginStartResponse(session_id=session_id)
 
 
@@ -79,6 +85,7 @@ async def list_accounts(
             email=a.email,
             created_at=a.created_at,
             last_used=a.last_used,
+            proxy_url=a.proxy_url,
         )
         for a in accounts
     ]
@@ -98,6 +105,7 @@ async def get_active_account(
         email=account.email,
         created_at=account.created_at,
         last_used=account.last_used,
+        proxy_url=account.proxy_url,
     )
 
 
@@ -127,6 +135,7 @@ async def activate_account(
         email=account.email,
         created_at=account.created_at,
         last_used=account.last_used,
+        proxy_url=account.proxy_url,
     )
 
 
@@ -149,7 +158,15 @@ async def update_account(
     account_service=Depends(get_account_service),
 ):
     """更新账号名称。"""
-    account = account_service.update_account(account_id, req.name)
+    try:
+        account = account_service.update_account(
+            account_id,
+            req.name,
+            proxy_url=req.proxy_url,
+            update_proxy="proxy_url" in req.model_fields_set,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, detail={"message": str(exc), "type": "bad_request"}) from exc
     if account is None:
         raise HTTPException(status_code=404, detail="账号不存在")
     return AccountResponse(
@@ -158,4 +175,5 @@ async def update_account(
         email=account.email,
         created_at=account.created_at,
         last_used=account.last_used,
+        proxy_url=account.proxy_url,
     )

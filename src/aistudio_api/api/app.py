@@ -70,6 +70,14 @@ async def lifespan(app: FastAPI):
     # 后台预热浏览器，避免首次请求延迟
     warmup_task = None
     if not settings.use_pure_http:
+        active_account = account_store.get_active_account()
+        active_auth_path = account_store.get_active_auth_path()
+        if active_auth_path is not None:
+            await client.switch_auth(
+                str(active_auth_path),
+                active_account.proxy_url if active_account else None,
+            )
+
         async def _warmup():
             try:
                 await client.warmup()

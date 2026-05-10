@@ -53,13 +53,21 @@ class AccountMeta:
     email: str | None
     created_at: str
     last_used: str | None = None
+    proxy_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AccountMeta:
-        return cls(**data)
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            email=data.get("email"),
+            created_at=data["created_at"],
+            last_used=data.get("last_used"),
+            proxy_url=data.get("proxy_url"),
+        )
 
 
 @dataclass
@@ -115,6 +123,7 @@ class AccountStore:
             email=None,
             created_at=now,
             last_used=now,
+            proxy_url=None,
         )
         account_dir = self._accounts_dir / account_id
         account_dir.mkdir(parents=True, exist_ok=True)
@@ -191,6 +200,7 @@ class AccountStore:
         email: str | None,
         storage_state: dict[str, Any],
         account_id: str | None = None,
+        proxy_url: str | None = None,
     ) -> AccountMeta:
         """保存新账号。"""
         if account_id is None:
@@ -202,6 +212,7 @@ class AccountStore:
             email=email,
             created_at=now,
             last_used=now,
+            proxy_url=proxy_url,
         )
         account_dir = self._accounts_dir / account_id
         account_dir.mkdir(parents=True, exist_ok=True)
@@ -237,22 +248,31 @@ class AccountStore:
         self._save_registry(registry)
         return True
 
-    def update_account(self, account_id: str, name: str) -> AccountMeta | None:
+    def update_account(
+        self,
+        account_id: str,
+        name: str,
+        *,
+        proxy_url: str | None = None,
+        update_proxy: bool = False,
+    ) -> AccountMeta | None:
         """更新账号名称。"""
         registry = self._load_registry()
         if account_id not in registry.accounts:
             return None
-        registry.accounts[account_id].name = name
+        account = registry.accounts[account_id]
+        account.name = name
+        if update_proxy:
+            account.proxy_url = proxy_url
         # 同步更新 meta.json
         account_dir = self._accounts_dir / account_id
         meta_path = account_dir / "meta.json"
-        if meta_path.exists():
-            meta_path.write_text(
-                json.dumps(registry.accounts[account_id].to_dict(), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+        meta_path.write_text(
+            json.dumps(account.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         self._save_registry(registry)
-        return registry.accounts[account_id]
+        return account
 
     def get_auth_path(self, account_id: str) -> Path | None:
         """获取指定账号的 auth.json 路径。"""

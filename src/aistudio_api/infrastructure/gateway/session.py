@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from aistudio_api.config import settings
+from aistudio_api.infrastructure.browser.proxy import parse_proxy_url, sanitize_proxy_url
 from aistudio_api.infrastructure.gateway.wire_types import AistudioContent
 
 log = logging.getLogger("aistudio.session")
@@ -125,6 +126,7 @@ class BrowserSession:
     def __init__(self, port: int):
         self.port = port
         self._auth_file = settings.auth_file
+        self._proxy_url: str | None = None
         self._hook_page = None
         self._ctx = None
         self._browser = None
@@ -138,8 +140,8 @@ class BrowserSession:
     async def ensure_context(self):
         return await self._run_sync(self._ensure_browser_sync)
 
-    async def switch_auth(self, auth_file: str | None) -> None:
-        await self._run_sync(self._switch_auth_sync, auth_file)
+    async def switch_auth(self, auth_file: str | None, proxy_url: str | None = None) -> None:
+        await self._run_sync(self._switch_auth_sync, auth_file, proxy_url)
 
     async def ensure_hook_page(self):
         await self._run_sync(self._ensure_hook_page_sync)
@@ -387,9 +389,17 @@ class BrowserSession:
         url, headers = self._get_captured_info()
         return page, url, headers
 
-    def _switch_auth_sync(self, auth_file: str | None) -> None:
+    def _switch_auth_sync(self, auth_file: str | None, proxy_url: str | None = None) -> None:
+        if self._auth_file == auth_file and self._proxy_url == proxy_url:
+            return
         self._auth_file = auth_file
+        self._proxy_url = proxy_url
         self._templates.clear()
+        log.info(
+            "switch browser session auth=%s proxy=%s",
+            auth_file,
+            sanitize_proxy_url(proxy_url),
+        )
         self._close_sync()
 
     def _ensure_browser_sync(self):
@@ -401,7 +411,14 @@ class BrowserSession:
         from camoufox.sync_api import Camoufox
 
         self._close_sync()
-        self._cf = Camoufox(headless=settings.camoufox_headless, main_world_eval=True)
+        camoufox_kwargs = {
+            "headless": settings.camoufox_headless,
+            "main_world_eval": True,
+        }
+        proxy = parse_proxy_url(self._proxy_url)
+        if proxy is not None:
+            camoufox_kwargs["proxy"] = proxy
+        self._cf = Camoufox(**camoufox_kwargs)
         self._browser = self._cf.__enter__()
         self._ctx = self._new_context_sync()
         self._hook_page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()

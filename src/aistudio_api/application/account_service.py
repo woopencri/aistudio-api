@@ -7,6 +7,7 @@ from typing import Any
 
 from aistudio_api.infrastructure.account.account_store import AccountStore, AccountMeta
 from aistudio_api.infrastructure.account.login_service import LoginService, LoginSession
+from aistudio_api.infrastructure.browser.proxy import parse_proxy_url, sanitize_proxy_url
 
 logger = logging.getLogger("aistudio.account")
 
@@ -34,9 +35,20 @@ class AccountService:
         """获取当前活跃账号。"""
         return self._store.get_active_account()
 
-    async def start_login(self, name: str | None = None) -> str:
+    @staticmethod
+    def _validate_proxy_url(proxy_url: str | None) -> str | None:
+        if proxy_url is None:
+            return None
+        normalized = proxy_url.strip()
+        if not normalized:
+            return None
+        parse_proxy_url(normalized)
+        return normalized
+
+    async def start_login(self, name: str | None = None, proxy_url: str | None = None) -> str:
         """启动登录流程，返回 session_id。"""
-        return await self._login.start_login(self._store, name)
+        normalized_proxy_url = self._validate_proxy_url(proxy_url)
+        return await self._login.start_login(self._store, name, normalized_proxy_url)
 
     def get_login_status(self, session_id: str) -> LoginSession | None:
         """获取登录状态。"""
@@ -74,8 +86,8 @@ class AccountService:
                 logger.error("账号 %s 的 auth.json 不存在", account_id)
                 return None
 
-            # 切换 BrowserSession 的 auth
-            await browser_session.switch_auth(str(auth_path))
+            # 切换 BrowserSession 的 auth 和代理
+            await browser_session.switch_auth(str(auth_path), account.proxy_url)
 
             # 切号后默认清理 snapshot，避免旧页面态和新账号 cookies 混用。
             if not keep_snapshot_cache and snapshot_cache is not None:
@@ -85,7 +97,12 @@ class AccountService:
             # 更新注册表
             self._store.set_active_account(account_id)
 
-            logger.info("已切换到账号: %s (%s)", account_id, account.name)
+            logger.info(
+                "已切换到账号: %s (%s), proxy=%s",
+                account_id,
+                account.name,
+                sanitize_proxy_url(account.proxy_url),
+            )
             return account
 
         # 获取 busy_lock 确保无请求在飞行中
@@ -99,6 +116,21 @@ class AccountService:
         """删除账号。"""
         return self._store.delete_account(account_id)
 
-    def update_account(self, account_id: str, name: str) -> AccountMeta | None:
+    def update_account(
+        self,
+        account_id: str,
+        name: str,
+        *,
+        proxy_url: str | None = None,
+        update_proxy: bool = False,
+    ) -> AccountMeta | None:
         """更新账号名称。"""
-        return self._store.update_account(account_id, name)
+        normalized_proxy_url = proxy_url
+        if update_proxy:
+            normalized_proxy_url = self._validate_proxy_url(proxy_url)
+        return self._store.update_account(
+            account_id,
+            name,
+            proxy_url=normalized_proxy_url,
+            update_proxy=update_proxy,
+        )

@@ -6,7 +6,8 @@ import asyncio
 import json
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger("aistudio.proxy")
 
@@ -28,6 +29,42 @@ def get_latest_cookies() -> Optional[str]:
 
 def get_latest_body() -> Optional[list]:
     return _latest_dump.get("body")
+
+
+def sanitize_proxy_url(proxy_url: str | None) -> str | None:
+    if not proxy_url:
+        return None
+    parsed = urlparse(proxy_url)
+    host = parsed.hostname or ""
+    port = f":{parsed.port}" if parsed.port else ""
+    if parsed.username or parsed.password:
+        credentials = parsed.username or ""
+        if parsed.password:
+            credentials = f"{credentials}:***"
+        auth = f"{credentials}@"
+    else:
+        auth = ""
+    return f"{parsed.scheme}://{auth}{host}{port}"
+
+
+def parse_proxy_url(proxy_url: str | None) -> dict[str, Any] | None:
+    if not proxy_url:
+        return None
+    parsed = urlparse(proxy_url)
+    if not parsed.scheme or not parsed.hostname:
+        raise ValueError("代理地址必须包含 scheme 和 host")
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https", "socks5"}:
+        raise ValueError("代理协议仅支持 http、https、socks5")
+    server = f"{scheme}://{parsed.hostname}"
+    if parsed.port is not None:
+        server = f"{server}:{parsed.port}"
+    proxy: dict[str, Any] = {"server": server}
+    if parsed.username:
+        proxy["username"] = parsed.username
+    if parsed.password:
+        proxy["password"] = parsed.password
+    return proxy
 
 
 class MITMProxy:

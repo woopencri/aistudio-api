@@ -138,7 +138,7 @@
       <div class="page-pad">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:24px">
           <h1 style="font-size:24px;font-weight:700">账号管理</h1>
-          <button class="btn btn-primary" @click="addAccount()">+ 登录账号</button>
+          <button class="btn btn-primary" @click="showAddAccount=true">+ 登录账号</button>
         </div>
         <div class="card" style="margin-bottom:24px">
           <div class="card-head">轮询设置</div>
@@ -152,21 +152,52 @@
         <div class="card">
           <div class="card-head"><span>账号池</span><span style="font-size:13px;color:var(--muted)" x-text="accountRows.length+' 个账号'"></span></div>
           <div class="table-wrap"><table>
-            <thead><tr><th>邮箱</th><th>请求</th><th>成功</th><th>429</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>邮箱</th><th>代理</th><th>请求</th><th>成功</th><th>429</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               <template x-for="a in accountRows" :key="a.id"><tr>
                 <td><div style="font-weight:500" x-text="a.email||a.name||a.id"></div><div style="font-size:12px;color:var(--muted);font-family:monospace" x-text="a.id"></div></td>
+                <td><div class="proxy-cell" x-text="maskProxyUrl(a.proxy_url)||'未配置'"></div></td>
                 <td x-text="a.requests||0"></td>
                 <td><span class="badge badge-green" x-text="a.success||0"></span></td>
                 <td><span class="badge" :class="(a.rate_limited||0)>0?'badge-red':'badge-gray'" x-text="a.rate_limited||0"></span></td>
                 <td><span class="badge badge-green" x-show="a.id===activeId">激活</span><span class="badge badge-gray" x-show="a.id!==activeId">待命</span></td>
-                <td><button class="btn btn-sm" x-show="a.id!==activeId" @click="activateAccount(a.id)">手动激活</button></td>
+                <td style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" x-show="a.id!==activeId" @click="activateAccount(a.id)">手动激活</button><button class="btn btn-sm" @click="openEditAccount(a)">编辑</button></td>
               </tr></template>
-              <tr x-show="!accountRows.length"><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">暂无账号</td></tr>
+              <tr x-show="!accountRows.length"><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">暂无账号</td></tr>
             </tbody></table></div>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="showAddAccount||showEditAccount" x-cloak></div>
+
+<div class="modal" x-show="showAddAccount" x-cloak @click.self="showAddAccount=false;resetAddForm()">
+  <div class="modal-card">
+    <div class="modal-head"><span>登录新账号</span><button class="modal-close" @click="showAddAccount=false;resetAddForm()">×</button></div>
+    <div class="modal-body">
+      <label class="form-label">账号名称</label>
+      <input class="form-input" type="text" x-model="addForm.name" placeholder="可选，默认使用检测到的邮箱">
+      <label class="form-label">代理 URL</label>
+      <input class="form-input" type="text" x-model="addForm.proxyUrl" placeholder="例如：http://user:pass@127.0.0.1:7890 或 socks5://127.0.0.1:1080">
+      <div class="form-help">留空表示不使用代理。登录浏览器和后续正式请求都会绑定此代理。</div>
+    </div>
+    <div class="modal-actions"><button class="btn" @click="showAddAccount=false;resetAddForm()">取消</button><button class="btn btn-primary" @click="addAccount()">开始登录</button></div>
+  </div>
+</div>
+
+<div class="modal" x-show="showEditAccount" x-cloak @click.self="closeEditAccount()">
+  <div class="modal-card">
+    <div class="modal-head"><span>编辑账号</span><button class="modal-close" @click="closeEditAccount()">×</button></div>
+    <div class="modal-body">
+      <label class="form-label">账号名称</label>
+      <input class="form-input" type="text" x-model="editForm.name" placeholder="账号显示名称">
+      <label class="form-label">代理 URL</label>
+      <input class="form-input" type="text" x-model="editForm.proxyUrl" placeholder="留空表示清空代理配置">
+      <div class="form-help">修改后，下次激活该账号时会按新的代理重建浏览器会话。</div>
+    </div>
+    <div class="modal-actions"><button class="btn" @click="closeEditAccount()">取消</button><button class="btn btn-primary" @click="saveAccountEdit()">保存</button></div>
   </div>
 </div>
 

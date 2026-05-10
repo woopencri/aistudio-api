@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from aistudio_api.infrastructure.browser.camoufox_manager import CamoufoxManager
+from aistudio_api.infrastructure.browser.proxy import sanitize_proxy_url
 
 logger = logging.getLogger("aistudio.login")
 
@@ -47,6 +48,7 @@ class LoginService:
         self,
         account_store: Any,  # AccountStore
         name: str | None = None,
+        proxy_url: str | None = None,
     ) -> str:
         """启动登录流程，返回 session_id。"""
         session_id = self._generate_session_id()
@@ -54,7 +56,7 @@ class LoginService:
         self._sessions[session_id] = session
         # 启动后台任务
         task = asyncio.create_task(
-            self._login_worker(session_id, account_store, name)
+            self._login_worker(session_id, account_store, name, proxy_url)
         )
         self._tasks[session_id] = task
         return session_id
@@ -68,18 +70,20 @@ class LoginService:
         session_id: str,
         account_store: Any,
         name: str | None,
+        proxy_url: str | None,
     ) -> None:
         """登录工作协程。"""
         session = self._sessions[session_id]
         manager = CamoufoxManager(
             port=self._port,
             headless=False,  # 有头模式，用户需要看到浏览器
+            proxy_url=proxy_url,
         )
         playwright = None
         browser = None
         try:
             # 启动浏览器
-            logger.info("启动登录浏览器，端口 %d", self._port)
+            logger.info("启动登录浏览器，端口 %d, proxy=%s", self._port, sanitize_proxy_url(proxy_url))
             ws_endpoint = await manager.start()
             logger.info("浏览器已启动: %s", ws_endpoint)
 
@@ -181,6 +185,7 @@ class LoginService:
                 name=account_name,
                 email=detected_email,
                 storage_state=storage_state,
+                proxy_url=proxy_url,
             )
 
             session.status = LoginStatus.COMPLETED
