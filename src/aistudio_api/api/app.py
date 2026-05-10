@@ -37,7 +37,8 @@ async def lifespan(app: FastAPI):
         use_pure_http=settings.use_pure_http,
     )
     runtime_state.client = client
-    runtime_state.busy_lock = asyncio.Lock()
+    from aistudio_api.config import settings as app_settings
+    runtime_state.busy_lock = asyncio.Semaphore(app_settings.max_concurrency)
 
     # 注入 snapshot 缓存引用，切号时需要清除
     from aistudio_api.infrastructure.gateway.client import _snapshot_cache
@@ -69,6 +70,14 @@ async def lifespan(app: FastAPI):
     # 后台预热浏览器，避免首次请求延迟
     warmup_task = None
     if not settings.use_pure_http:
+        active_account = account_store.get_active_account()
+        active_auth_path = account_store.get_active_auth_path()
+        if active_auth_path is not None:
+            await client.switch_auth(
+                str(active_auth_path),
+                active_account.proxy_url if active_account else None,
+            )
+
         async def _warmup():
             try:
                 await client.warmup()

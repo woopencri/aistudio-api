@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aistudio_api.config import settings
+from aistudio_api.infrastructure.browser.proxy import sanitize_proxy_url
 
 logger = logging.getLogger("aistudio.camoufox")
 LAUNCHER_PATH = Path(__file__).with_name("camoufox_launcher.py")
@@ -23,10 +24,12 @@ class CamoufoxManager:
         port: int = 9222,
         auth_profile: Optional[str] = None,
         headless: bool = True,
+        proxy_url: Optional[str] = None,
     ):
         self.port = port
         self.auth_profile = auth_profile
         self.headless = headless
+        self.proxy_url = proxy_url
         self._process: Optional[subprocess.Popen] = None
         self._ws_endpoint: Optional[str] = None
         self._browser = None
@@ -50,7 +53,7 @@ class CamoufoxManager:
         except Exception:
             pass
 
-        logger.info("Starting Camoufox on port %s...", self.port)
+        logger.info("Starting Camoufox on port %s, proxy=%s...", self.port, sanitize_proxy_url(self.proxy_url))
         cmd = [
             self.python_executable,
             str(LAUNCHER_PATH),
@@ -59,6 +62,8 @@ class CamoufoxManager:
         ]
         if self.headless:
             cmd.append("--headless")
+        if self.proxy_url:
+            cmd.extend(["--proxy-url", self.proxy_url])
 
         self._process = subprocess.Popen(
             cmd,
